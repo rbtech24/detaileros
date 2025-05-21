@@ -11,7 +11,7 @@ import { JobForm } from "@/components/jobs/job-form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useState } from "react";
-import { ChevronLeft, Edit, Calendar, MapPin, Phone, Car, User, Clipboard, Clock, DollarSign, FileText, Check, X } from "lucide-react";
+import { ChevronLeft, Edit, Calendar, MapPin, Phone, Mail, Car, User, Clipboard, Clock, DollarSign, FileText, Check, X } from "lucide-react";
 
 interface JobDetailProps {
   id: number;
