@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import { MainLayout } from "@/components/layout/main-layout";
 import Dashboard from "@/pages/dashboard";
 import Customers from "@/pages/customers";
+import CustomerAssignments from "@/pages/customer-assignments";
 import Employees from "@/pages/employees";
 import Calendar from "@/pages/calendar";
 import Jobs from "@/pages/jobs";
@@ -14,6 +15,7 @@ import Invoices from "@/pages/invoices";
 import Reports from "@/pages/reports";
 import Waivers from "@/pages/waivers";
 import Payroll from "@/pages/payroll";
+import Inventory from "@/pages/inventory";
 import Login from "@/pages/login";
 import NewJob from "@/pages/jobs/new";
 import JobDetail from "@/pages/jobs/detail";
@@ -76,6 +78,16 @@ function Router() {
       <Route path="/waivers">
         <MainLayout>
           <Waivers />
+        </MainLayout>
+      </Route>
+      <Route path="/inventory">
+        <MainLayout>
+          <Inventory />
+        </MainLayout>
+      </Route>
+      <Route path="/customer-assignments">
+        <MainLayout>
+          <CustomerAssignments />
         </MainLayout>
       </Route>
       <Route path="/reports">

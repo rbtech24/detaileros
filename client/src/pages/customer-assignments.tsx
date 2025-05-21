@@ -45,7 +45,9 @@ import {
   Clock,
   Car,
   Link as LinkIcon,
-  Unlink
+  Unlink,
+  Mail,
+  Phone
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
