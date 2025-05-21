@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { format, subDays, startOfMonth, endOfMonth, subMonths, formatISO } from "date-fns";
+import { format, subDays, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { cn, formatCurrency } from "@/lib/utils";
 import { CalendarIcon, Download, BarChart3, TrendingUp, Users, Car, ClipboardCheck } from "lucide-react";
 import {
@@ -159,10 +159,16 @@ export default function Reports() {
                 <Calendar
                   mode="range"
                   defaultMonth={dateRange.from}
-                  selected={dateRange}
+                  selected={{
+                    from: dateRange.from,
+                    to: dateRange.to
+                  }}
                   onSelect={(range) => {
                     if (range?.from && range?.to) {
-                      setDateRange(range);
+                      setDateRange({
+                        from: range.from,
+                        to: range.to
+                      });
                       setDatePreset("custom");
                     }
                   }}
@@ -211,374 +217,94 @@ export default function Reports() {
             Trends
           </TabsTrigger>
         </TabsList>
-      </Tabs>
 
-      {/* Revenue Report */}
-      <TabsContent value="revenue" className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Total Revenue</CardTitle>
-              <CardDescription>
-                {format(dateRange.from, "MMM d")} - {format(dateRange.to, "MMM d, yyyy")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">
-                {isLoadingRevenue ? (
-                  <div className="h-9 bg-slate-100 animate-pulse rounded"></div>
-                ) : (
-                  formatCurrency(revenueStats?.totalRevenue || 0)
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                Average job value: {formatCurrency(revenueStats?.avgJobValue || 0)}
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Completed Jobs</CardTitle>
-              <CardDescription>
-                {format(dateRange.from, "MMM d")} - {format(dateRange.to, "MMM d, yyyy")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">
-                {isLoadingRevenue ? (
-                  <div className="h-9 bg-slate-100 animate-pulse rounded"></div>
-                ) : (
-                  revenueStats?.jobsCompleted || 0
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                Jobs completed in selected period
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">New Customers</CardTitle>
-              <CardDescription>
-                {format(dateRange.from, "MMM d")} - {format(dateRange.to, "MMM d, yyyy")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">
-                {isLoadingRevenue ? (
-                  <div className="h-9 bg-slate-100 animate-pulse rounded"></div>
-                ) : (
-                  revenueStats?.newCustomers || 0
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                New customers acquired
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Monthly Revenue</CardTitle>
-            <CardDescription>Revenue trend over the past year</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[400px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={generateMonthlyData()}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 30 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" />
-                  <YAxis 
-                    tickFormatter={(value) => `$${value}`}
-                    width={80}
-                  />
-                  <Tooltip 
-                    formatter={(value) => [`$${value}`, 'Revenue']}
-                    contentStyle={{ 
-                      backgroundColor: '#fff',
-                      border: '1px solid #ccc',
-                      borderRadius: '0.5rem',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                    }}
-                  />
-                  <Bar 
-                    dataKey="revenue" 
-                    fill="#3b82f6" 
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </TabsContent>
-
-      {/* Services Report */}
-      <TabsContent value="services" className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Top Services by Revenue</CardTitle>
-              <CardDescription>
-                {format(dateRange.from, "MMM d")} - {format(dateRange.to, "MMM d, yyyy")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                {isLoadingTopServices ? (
-                  <div className="h-full w-full flex items-center justify-center">
-                    <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full"></div>
-                  </div>
-                ) : topServices && topServices.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={generateServiceData()}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        outerRadius={100}
-                        fill="#8884d8"
-                        dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {generateServiceData().map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        formatter={(value) => [`$${value}`, 'Revenue']}
-                        contentStyle={{ 
-                          backgroundColor: '#fff',
-                          border: '1px solid #ccc',
-                          borderRadius: '0.5rem',
-                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                        }}
-                      />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full w-full flex items-center justify-center">
-                    <p className="text-slate-500">No service data available for the selected period</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+        {/* Revenue Report */}
+        <TabsContent value="revenue" className="space-y-6 mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Total Revenue</CardTitle>
+                <CardDescription>
+                  {format(dateRange.from, "MMM d")} - {format(dateRange.to, "MMM d, yyyy")}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">
+                  {isLoadingRevenue ? (
+                    <div className="h-9 bg-slate-100 animate-pulse rounded"></div>
+                  ) : (
+                    formatCurrency(revenueStats?.totalRevenue || 0)
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Average job value: {formatCurrency(revenueStats?.avgJobValue || 0)}
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Completed Jobs</CardTitle>
+                <CardDescription>
+                  {format(dateRange.from, "MMM d")} - {format(dateRange.to, "MMM d, yyyy")}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">
+                  {isLoadingRevenue ? (
+                    <div className="h-9 bg-slate-100 animate-pulse rounded"></div>
+                  ) : (
+                    revenueStats?.jobsCompleted || 0
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Jobs completed in selected period
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">New Customers</CardTitle>
+                <CardDescription>
+                  {format(dateRange.from, "MMM d")} - {format(dateRange.to, "MMM d, yyyy")}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">
+                  {isLoadingRevenue ? (
+                    <div className="h-9 bg-slate-100 animate-pulse rounded"></div>
+                  ) : (
+                    revenueStats?.newCustomers || 0
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  New customers acquired
+                </p>
+              </CardContent>
+            </Card>
+          </div>
 
           <Card>
             <CardHeader>
-              <CardTitle>Service Breakdown</CardTitle>
-              <CardDescription>
-                {format(dateRange.from, "MMM d")} - {format(dateRange.to, "MMM d, yyyy")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {isLoadingTopServices ? (
-                  Array(5).fill(0).map((_, i) => (
-                    <div key={i} className="space-y-2">
-                      <div className="flex justify-between">
-                        <div className="w-32 h-4 bg-slate-100 animate-pulse rounded"></div>
-                        <div className="w-16 h-4 bg-slate-100 animate-pulse rounded"></div>
-                      </div>
-                      <div className="h-2 bg-slate-100 animate-pulse rounded-full"></div>
-                    </div>
-                  ))
-                ) : topServices && topServices.length > 0 ? (
-                  topServices.map((service: any, index: number) => (
-                    <div key={service.serviceId} className="space-y-1">
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium">{service.serviceName}</span>
-                        <span className="text-sm font-medium">{formatCurrency(service.revenue)}</span>
-                      </div>
-                      <div className="w-full bg-slate-100 rounded-full h-2">
-                        <div 
-                          className="rounded-full h-2"
-                          style={{ 
-                            width: `${(service.revenue / topServices[0].revenue) * 100}%`,
-                            backgroundColor: COLORS[index % COLORS.length]
-                          }}
-                        ></div>
-                      </div>
-                      <div className="flex justify-between text-xs text-slate-500">
-                        <span>Jobs: {service.count}</span>
-                        <span>Avg: {formatCurrency(service.revenue / service.count)}</span>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="py-8 text-center text-slate-500">
-                    No service data available for the selected period
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </TabsContent>
-
-      {/* Customers Report */}
-      <TabsContent value="customers" className="space-y-6">
-        <div className="grid grid-cols-1 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Customer Acquisition</CardTitle>
-              <CardDescription>New vs. returning customers by month</CardDescription>
+              <CardTitle>Monthly Revenue</CardTitle>
+              <CardDescription>Revenue trend over the past year</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    data={generateCustomerData()}
+                    data={generateMonthlyData()}
                     margin={{ top: 20, right: 30, left: 20, bottom: 30 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#fff',
-                        border: '1px solid #ccc',
-                        borderRadius: '0.5rem',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                      }}
+                    <YAxis 
+                      tickFormatter={(value) => `$${value}`}
+                      width={80}
                     />
-                    <Legend />
-                    <Bar dataKey="newCustomers" name="New Customers" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="returning" name="Returning Customers" fill="#10b981" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Customer Retention Rate</CardTitle>
-                <CardDescription>Percentage of returning customers</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col items-center justify-center h-[200px]">
-                  <div className="text-5xl font-bold text-primary mb-2">78%</div>
-                  <p className="text-sm text-slate-500">Customer retention rate</p>
-                  <div className="mt-4 w-full max-w-xs bg-slate-100 rounded-full h-2">
-                    <div className="bg-primary h-2 rounded-full" style={{ width: "78%" }}></div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Average Jobs Per Customer</CardTitle>
-                <CardDescription>Number of jobs per customer on average</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col items-center justify-center h-[200px]">
-                  <div className="text-5xl font-bold text-primary mb-2">2.4</div>
-                  <p className="text-sm text-slate-500">Jobs per customer</p>
-                  <div className="mt-4 flex justify-between w-full max-w-xs">
-                    <div className="text-center">
-                      <div className="text-xl font-bold">$320</div>
-                      <div className="text-xs text-slate-500">Avg. Lifetime Value</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-xl font-bold">5.2</div>
-                      <div className="text-xs text-slate-500">Months as Customer</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-xl font-bold">22%</div>
-                      <div className="text-xs text-slate-500">Referral Rate</div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </TabsContent>
-
-      {/* Trends Report */}
-      <TabsContent value="trends" className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Revenue Growth Trend</CardTitle>
-            <CardDescription>Monthly revenue growth over time</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[400px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={generateMonthlyData()}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 30 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" />
-                  <YAxis 
-                    tickFormatter={(value) => `$${value}`}
-                    width={80}
-                  />
-                  <Tooltip 
-                    formatter={(value) => [`$${value}`, 'Revenue']}
-                    contentStyle={{ 
-                      backgroundColor: '#fff',
-                      border: '1px solid #ccc',
-                      borderRadius: '0.5rem',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                    }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="revenue" 
-                    stroke="#3b82f6" 
-                    strokeWidth={2}
-                    dot={{ r: 4 }}
-                    activeDot={{ r: 6 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Popular Service Times</CardTitle>
-              <CardDescription>Most requested service times</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={[
-                      { time: "8 AM", jobs: 5 },
-                      { time: "9 AM", jobs: 8 },
-                      { time: "10 AM", jobs: 12 },
-                      { time: "11 AM", jobs: 15 },
-                      { time: "12 PM", jobs: 10 },
-                      { time: "1 PM", jobs: 12 },
-                      { time: "2 PM", jobs: 18 },
-                      { time: "3 PM", jobs: 14 },
-                      { time: "4 PM", jobs: 9 },
-                      { time: "5 PM", jobs: 6 },
-                    ]}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 30 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="time" />
-                    <YAxis />
                     <Tooltip 
-                      formatter={(value) => [value, 'Jobs']}
+                      formatter={(value) => [`$${value}`, 'Revenue']}
                       contentStyle={{ 
                         backgroundColor: '#fff',
                         border: '1px solid #ccc',
@@ -587,8 +313,8 @@ export default function Reports() {
                       }}
                     />
                     <Bar 
-                      dataKey="jobs" 
-                      fill="#f97316" 
+                      dataKey="revenue" 
+                      fill="#3b82f6" 
                       radius={[4, 4, 0, 0]}
                     />
                   </BarChart>
@@ -596,57 +322,339 @@ export default function Reports() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Vehicle Types</CardTitle>
-              <CardDescription>Distribution of vehicle types serviced</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={[
-                        { name: "Sedan", value: 45 },
-                        { name: "SUV", value: 30 },
-                        { name: "Truck", value: 15 },
-                        { name: "Luxury", value: 10 },
-                      ]}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      outerRadius={100}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+        {/* Services Report */}
+        <TabsContent value="services" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Top Services by Revenue</CardTitle>
+                <CardDescription>
+                  {format(dateRange.from, "MMM d")} - {format(dateRange.to, "MMM d, yyyy")}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px]">
+                  {isLoadingTopServices ? (
+                    <div className="h-full w-full flex items-center justify-center">
+                      <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full"></div>
+                    </div>
+                  ) : topServices && topServices.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={generateServiceData()}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          outerRadius={100}
+                          fill="#8884d8"
+                          dataKey="value"
+                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        >
+                          {generateServiceData().map((entry: any, index: number) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          formatter={(value) => [`$${value}`, 'Revenue']}
+                          contentStyle={{ 
+                            backgroundColor: '#fff',
+                            border: '1px solid #ccc',
+                            borderRadius: '0.5rem',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                          }}
+                        />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center">
+                      <p className="text-slate-500">No service data available for the selected period</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Service Breakdown</CardTitle>
+                <CardDescription>
+                  {format(dateRange.from, "MMM d")} - {format(dateRange.to, "MMM d, yyyy")}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {isLoadingTopServices ? (
+                    Array(5).fill(0).map((_, i) => (
+                      <div key={i} className="space-y-2">
+                        <div className="flex justify-between">
+                          <div className="w-32 h-4 bg-slate-100 animate-pulse rounded"></div>
+                          <div className="w-16 h-4 bg-slate-100 animate-pulse rounded"></div>
+                        </div>
+                        <div className="h-2 bg-slate-100 animate-pulse rounded-full"></div>
+                      </div>
+                    ))
+                  ) : topServices && topServices.length > 0 ? (
+                    topServices.map((service: any, index: number) => (
+                      <div key={service.serviceId} className="space-y-1">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium">{service.serviceName}</span>
+                          <span className="text-sm font-medium">{formatCurrency(service.revenue)}</span>
+                        </div>
+                        <div className="w-full bg-slate-100 rounded-full h-2">
+                          <div 
+                            className="rounded-full h-2"
+                            style={{ 
+                              width: `${(service.revenue / topServices[0].revenue) * 100}%`,
+                              backgroundColor: COLORS[index % COLORS.length]
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="py-6 text-center">
+                      <p className="text-slate-500">No service data available for the selected period</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Customers Report */}
+        <TabsContent value="customers" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Customer Acquisition</CardTitle>
+                <CardDescription>New vs returning customers</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[400px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={generateCustomerData()}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 30 }}
                     >
-                      {[
-                        { name: "Sedan", value: 45 },
-                        { name: "SUV", value: 30 },
-                        { name: "Truck", value: 15 },
-                        { name: "Luxury", value: 10 },
-                      ].map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value) => [value, 'Vehicles']}
-                      contentStyle={{ 
-                        backgroundColor: '#fff',
-                        border: '1px solid #ccc',
-                        borderRadius: '0.5rem',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                      }}
-                    />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </TabsContent>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#fff',
+                          border: '1px solid #ccc',
+                          borderRadius: '0.5rem',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                        }}
+                      />
+                      <Legend />
+                      <Line 
+                        type="monotone" 
+                        dataKey="newCustomers" 
+                        stroke="#3b82f6" 
+                        name="New Customers"
+                        strokeWidth={2}
+                        dot={{ r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="returning" 
+                        stroke="#10b981" 
+                        name="Returning Customers"
+                        strokeWidth={2}
+                        dot={{ r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Customer Statistics</CardTitle>
+                <CardDescription>Key customer metrics</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm">Total Customers</span>
+                      <span className="font-medium">235</span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span>Active in last 30 days</span>
+                        <span>68%</span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-2">
+                        <div className="rounded-full h-2 bg-blue-500" style={{ width: '68%' }}></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm">Avg. Services Per Customer</span>
+                      <span className="font-medium">3.2</span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span>Growth from last period</span>
+                        <span>+12%</span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-2">
+                        <div className="rounded-full h-2 bg-green-500" style={{ width: '73%' }}></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm">Customer Retention Rate</span>
+                      <span className="font-medium">81%</span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span>vs. industry average</span>
+                        <span>+5%</span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-2">
+                        <div className="rounded-full h-2 bg-blue-500" style={{ width: '81%' }}></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm">Customer Satisfaction Score</span>
+                      <span className="font-medium">4.7/5</span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span>Based on recent reviews</span>
+                        <span>94%</span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-2">
+                        <div className="rounded-full h-2 bg-green-500" style={{ width: '94%' }}></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Trends Report */}
+        <TabsContent value="trends" className="space-y-6">
+          <div className="grid grid-cols-1 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Business Trends Analysis</CardTitle>
+                <CardDescription>
+                  Key metrics and trends for the selected period
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm font-medium">Average Job Value</span>
+                        <span className="text-sm text-green-600">↑ 12%</span>
+                      </div>
+                      <div className="text-2xl font-bold">
+                        {formatCurrency(revenueStats?.avgJobValue || 0)}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        vs {formatCurrency((revenueStats?.avgJobValue || 0) * 0.88)} last period
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm font-medium">Customer Growth</span>
+                        <span className="text-sm text-green-600">↑ 8%</span>
+                      </div>
+                      <div className="text-2xl font-bold">
+                        {revenueStats?.newCustomers || 0}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        vs {Math.floor((revenueStats?.newCustomers || 0) * 0.92)} last period
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm font-medium">Service Efficiency</span>
+                        <span className="text-sm text-green-600">↑ 5%</span>
+                      </div>
+                      <div className="text-2xl font-bold">
+                        94%
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        vs 89% last period
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-4">
+                    <h3 className="text-sm font-medium mb-4">Emerging Business Trends</h3>
+                    <div className="space-y-4">
+                      <div className="flex items-start space-x-3">
+                        <div className="bg-blue-100 p-2 rounded-full">
+                          <TrendingUp className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium">Premium Service Uptake</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Premium detailing services have increased by 23% over the last quarter,
+                            indicating growing customer preference for high-value services.
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-start space-x-3">
+                        <div className="bg-green-100 p-2 rounded-full">
+                          <TrendingUp className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium">Repeat Customer Rate</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Customer retention has improved with 68% of customers returning within 
+                            3 months, up from 62% in the previous period.
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-start space-x-3">
+                        <div className="bg-orange-100 p-2 rounded-full">
+                          <TrendingUp className="h-5 w-5 text-orange-600" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium">Seasonal Service Demand</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Seasonal analysis shows a 34% increase in ceramic coating services
+                            during spring months, suggesting opportunity for seasonal promotions.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

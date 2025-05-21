@@ -170,7 +170,7 @@ export default function Invoices() {
                             <div>
                               <div className="font-semibold">{invoice.invoiceNumber}</div>
                               <div className="text-xs text-slate-500">
-                                {invoice.job.vehicle.make} {invoice.job.vehicle.model}
+                                {invoice.job?.vehicle?.make ? `${invoice.job.vehicle.make} ${invoice.job.vehicle.model}` : 'No vehicle info'}
                               </div>
                             </div>
                           </div>
