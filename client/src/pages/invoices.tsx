@@ -176,7 +176,7 @@ export default function Invoices() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium">{invoice.job.customer.fullName}</div>
+                          <div className="font-medium">{invoice.job?.customer?.fullName || 'No customer assigned'}</div>
                         </TableCell>
                         <TableCell>
                           <div className="text-sm">{formatDate(invoice.issueDate)}</div>

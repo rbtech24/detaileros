@@ -66,7 +66,6 @@ import {
   Box,
   Package,
   Droplet,
-  Spray,
   Truck,
   ShoppingCart,
   BarChart3,
@@ -74,8 +73,10 @@ import {
   ArrowUpDown,
   ArrowDown,
   ArrowUp,
-  RefreshCw
+  RefreshCw,
+  Download
 } from "lucide-react";
+import { format } from "date-fns";
 
 // Product types and categories
 const productCategories = [
