@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import { MainLayout } from "@/components/layout/main-layout";
 import Dashboard from "@/pages/dashboard";
 import Customers from "@/pages/customers";
+import Employees from "@/pages/employees";
 import Calendar from "@/pages/calendar";
 import Jobs from "@/pages/jobs";
 import Invoices from "@/pages/invoices";
@@ -31,6 +32,11 @@ function Router() {
       <Route path="/customers">
         <MainLayout>
           <Customers />
+        </MainLayout>
+      </Route>
+      <Route path="/employees">
+        <MainLayout>
+          <Employees />
         </MainLayout>
       </Route>
       <Route path="/calendar">

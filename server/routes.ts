@@ -660,6 +660,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User/Employee routes
+  api.get("/users", async (req, res) => {
+    try {
+      const role = req.query.role as string;
+      const users = await storage.listUsers();
+      
+      // Filter by role if provided
+      const filteredUsers = role 
+        ? users.filter(user => user.role === role)
+        : users;
+      
+      // Remove password from response
+      const sanitizedUsers = filteredUsers.map(({ password, ...user }) => user);
+      
+      res.json(sanitizedUsers);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to retrieve users" });
+    }
+  });
+  
+  api.get("/users/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const user = await storage.getUser(id);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Remove password from response
+      const { password, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to retrieve user" });
+    }
+  });
+  
+  api.post("/users", async (req, res) => {
+    try {
+      const userData = insertUserSchema.parse(req.body);
+      
+      // Check if username is already taken
+      const existingUser = await storage.getUserByUsername(userData.username);
+      if (existingUser) {
+        return res.status(400).json({ message: "Username already taken" });
+      }
+      
+      const user = await storage.createUser(userData);
+      
+      // Remove password from response
+      const { password, ...userWithoutPassword } = user;
+      res.status(201).json(userWithoutPassword);
+    } catch (err) {
+      handleZodError(err as Error, res);
+    }
+  });
+  
+  api.put("/users/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const userData = insertUserSchema.partial().parse(req.body);
+      
+      // If changing username, check if new username is available
+      if (userData.username) {
+        const existingUser = await storage.getUserByUsername(userData.username);
+        if (existingUser && existingUser.id !== id) {
+          return res.status(400).json({ message: "Username already taken" });
+        }
+      }
+      
+      const user = await storage.updateUser(id, userData);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Remove password from response
+      const { password, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (err) {
+      handleZodError(err as Error, res);
+    }
+  });
+
   // Dashboard/Stats routes
   api.get("/stats/revenue", async (req, res) => {
     try {
