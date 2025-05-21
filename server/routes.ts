@@ -4,6 +4,7 @@ import { z } from "zod";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { storage } from "./storage";
+import { askAssistant, analyzeFeedback, generateEmailDraft, generateJobEstimate } from "./ai";
 import {
   insertCustomerSchema,
   insertVehicleSchema,
@@ -780,6 +781,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(topServices);
     } catch (err) {
       res.status(500).json({ message: "Failed to retrieve top services" });
+    }
+  });
+
+  // AI Assistant Routes
+  api.post("/ai/assistant", async (req, res) => {
+    try {
+      const questionSchema = z.object({
+        question: z.string().min(1),
+        context: z.string().optional()
+      });
+      
+      const result = questionSchema.safeParse(req.body);
+      if (!result.success) {
+        const validationError = fromZodError(result.error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      
+      const { question, context } = result.data;
+      const response = await askAssistant(question, context || "");
+      
+      res.json({ response });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to get AI assistant response" });
+    }
+  });
+  
+  api.post("/ai/analyze-feedback", async (req, res) => {
+    try {
+      const feedbackSchema = z.object({
+        feedback: z.string().min(1)
+      });
+      
+      const result = feedbackSchema.safeParse(req.body);
+      if (!result.success) {
+        const validationError = fromZodError(result.error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      
+      const { feedback } = result.data;
+      const analysis = await analyzeFeedback(feedback);
+      
+      res.json(analysis);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to analyze feedback" });
+    }
+  });
+  
+  api.post("/ai/email-draft", async (req, res) => {
+    try {
+      const emailSchema = z.object({
+        customerName: z.string().min(1),
+        purpose: z.enum(["follow_up", "appointment_reminder", "invoice", "thank_you", "custom"]),
+        customDetails: z.string().optional()
+      });
+      
+      const result = emailSchema.safeParse(req.body);
+      if (!result.success) {
+        const validationError = fromZodError(result.error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      
+      const { customerName, purpose, customDetails } = result.data;
+      const emailDraft = await generateEmailDraft(customerName, purpose, customDetails || "");
+      
+      res.json({ emailDraft });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to generate email draft" });
+    }
+  });
+  
+  api.post("/ai/job-estimate", async (req, res) => {
+    try {
+      const estimateSchema = z.object({
+        vehicleType: z.string().min(1),
+        vehicleCondition: z.string().min(1),
+        requestedServices: z.array(z.string()).min(1)
+      });
+      
+      const result = estimateSchema.safeParse(req.body);
+      if (!result.success) {
+        const validationError = fromZodError(result.error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      
+      const { vehicleType, vehicleCondition, requestedServices } = result.data;
+      const estimate = await generateJobEstimate(vehicleType, vehicleCondition, requestedServices);
+      
+      res.json(estimate);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to generate job estimate" });
     }
   });
 
