@@ -12,6 +12,8 @@ import Calendar from "@/pages/calendar";
 import Jobs from "@/pages/jobs";
 import Invoices from "@/pages/invoices";
 import Reports from "@/pages/reports";
+import Waivers from "@/pages/waivers";
+import Payroll from "@/pages/payroll";
 import Login from "@/pages/login";
 import NewJob from "@/pages/jobs/new";
 import JobDetail from "@/pages/jobs/detail";
@@ -39,6 +41,11 @@ function Router() {
           <Employees />
         </MainLayout>
       </Route>
+      <Route path="/payroll">
+        <MainLayout>
+          <Payroll />
+        </MainLayout>
+      </Route>
       <Route path="/calendar">
         <MainLayout>
           <Calendar />
@@ -64,6 +71,11 @@ function Router() {
       <Route path="/invoices">
         <MainLayout>
           <Invoices />
+        </MainLayout>
+      </Route>
+      <Route path="/waivers">
+        <MainLayout>
+          <Waivers />
         </MainLayout>
       </Route>
       <Route path="/reports">
