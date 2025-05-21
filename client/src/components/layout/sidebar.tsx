@@ -110,8 +110,7 @@ export function Sidebar() {
         <ul className="space-y-1 px-2">
           {navItems.map((item) => (
             <li key={item.href}>
-              <Link href={item.href}>
-                <a className={cn(
+              <Link href={item.href} className={cn(
                   "flex items-center space-x-3 p-3 rounded-lg font-medium",
                   location === item.href 
                     ? "bg-blue-50 text-primary" 
@@ -119,7 +118,6 @@ export function Sidebar() {
                 )}>
                   {item.icon}
                   <span>{item.label}</span>
-                </a>
               </Link>
             </li>
           ))}
