@@ -5,6 +5,7 @@ import { MobileNav } from "./mobile-nav";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useAuth } from "@/context/auth-context";
 import { Redirect } from "wouter";
+import { AiAssistant } from "@/components/ai-assistant";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -46,6 +47,9 @@ export function MainLayout({ children, requireAuth = true }: MainLayoutProps) {
         
         {/* Mobile Bottom Navigation */}
         <MobileNav />
+
+        {/* AI Assistant */}
+        {isAuthenticated && <AiAssistant />}
       </main>
     </div>
   );

@@ -874,6 +874,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI Assistant endpoint
+  api.post("/ai/assistant", async (req, res) => {
+    try {
+      const assistantSchema = z.object({
+        question: z.string().min(1),
+        context: z.string().optional()
+      });
+      
+      const result = assistantSchema.safeParse(req.body);
+      if (!result.success) {
+        const validationError = fromZodError(result.error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      
+      const { question, context } = result.data;
+      const response = await askAssistant(question, context || "");
+      
+      res.json({ response });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to get AI assistant response" });
+    }
+  });
+
   // Set up the API routes with the /api prefix
   app.use("/api", api);
 
