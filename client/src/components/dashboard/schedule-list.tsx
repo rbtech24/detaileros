@@ -60,8 +60,8 @@ export function ScheduleList({ jobs, isLoading }: ScheduleListProps) {
     <Card className="bg-white rounded-xl shadow-sm p-6">
       <div className="flex justify-between items-center mb-6">
         <h3 className="font-medium">Today's Schedule</h3>
-        <Link href="/calendar">
-          <a className="text-primary text-sm font-medium">View Calendar</a>
+        <Link href="/calendar" className="text-primary text-sm font-medium">
+          View Calendar
         </Link>
       </div>
       
@@ -134,12 +134,12 @@ export function ScheduleList({ jobs, isLoading }: ScheduleListProps) {
                     <MapPin className="h-4 w-4 mr-1" />
                     Directions
                   </Button>
-                  <Link href={`/jobs/${job.id}`}>
-                    <Button variant="default" size="sm" className="flex items-center">
+                  <Button variant="default" size="sm" className="flex items-center" asChild>
+                    <Link href={`/jobs/${job.id}`}>
                       <Eye className="h-4 w-4 mr-1" />
                       View Job
-                    </Button>
-                  </Link>
+                    </Link>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -151,9 +151,9 @@ export function ScheduleList({ jobs, isLoading }: ScheduleListProps) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
           <p className="mt-2 text-slate-500">No jobs scheduled for today</p>
-          <Link href="/jobs/new">
-            <Button className="mt-4">Schedule a Job</Button>
-          </Link>
+          <Button className="mt-4" asChild>
+            <Link href="/jobs/new">Schedule a Job</Link>
+          </Button>
         </div>
       )}
     </Card>

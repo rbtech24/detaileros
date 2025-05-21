@@ -78,7 +78,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 
-// Product types and categories
+// Product types and categories - focused on technician usage instead of retail sales
 const productCategories = [
   { id: "cleaning", name: "Cleaning Products" },
   { id: "polishing", name: "Polishing & Compounds" },
@@ -86,7 +86,10 @@ const productCategories = [
   { id: "coatings", name: "Ceramic Coatings" },
   { id: "tools", name: "Tools & Equipment" },
   { id: "accessories", name: "Accessories" },
-  { id: "merchandise", name: "Merchandise" },
+  { id: "consumables", name: "Consumables" },
+  { id: "chemicals", name: "Chemicals" },
+  { id: "towels", name: "Microfiber & Towels" },
+  { id: "ppe", name: "PPE & Safety" },
   { id: "other", name: "Other" }
 ];
 
@@ -116,7 +119,7 @@ const transactionFormSchema = z.object({
   date: z.date(),
 });
 
-// Mock products data
+// Mock products data - focused on technician usage for job assignments
 const mockProducts = [
   {
     id: 1,
@@ -129,7 +132,7 @@ const mockProducts = [
     quantityInStock: 45,
     minStockLevel: 10,
     supplier: "Auto Care Supplies",
-    location: "Shelf A1",
+    location: "Van #2, Tech: John Smith",
     isActive: true,
     lastRestocked: new Date("2025-04-15"),
     imageUrl: ""
@@ -139,13 +142,13 @@ const mockProducts = [
     name: "Ceramic Coating Pro",
     sku: "CC-100",
     category: "coatings",
-    description: "Professional-grade ceramic coating with 5-year durability",
+    description: "Professional-grade ceramic coating with 5-year durability - For tech use only, requires certification",
     unitPrice: 149.99,
     costPrice: 75.00,
     quantityInStock: 12,
     minStockLevel: 5,
     supplier: "Ceramic Tech",
-    location: "Cabinet B3",
+    location: "Main Storage, Locked Cabinet B3",
     isActive: true,
     lastRestocked: new Date("2025-05-01"),
     imageUrl: ""
@@ -154,7 +157,7 @@ const mockProducts = [
     id: 3,
     name: "Microfiber Towels (Pack of 10)",
     sku: "MT-010",
-    category: "accessories",
+    category: "towels",
     description: "Ultra-soft microfiber towels for scratch-free drying and polishing",
     unitPrice: 24.99,
     costPrice: 12.50,
