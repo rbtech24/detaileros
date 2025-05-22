@@ -10,7 +10,9 @@ import {
   activities, type Activity, type InsertActivity,
   reviews, type Review, type InsertReview,
   membershipPlans, type MembershipPlan, type InsertMembershipPlan,
-  customerSubscriptions, type CustomerSubscription, type InsertCustomerSubscription
+  customerSubscriptions, type CustomerSubscription, type InsertCustomerSubscription,
+  inventoryItems, type InventoryItem, type InsertInventoryItem,
+  inventoryTransactions, type InventoryTransaction, type InsertInventoryTransaction
 } from "@shared/schema";
 
 export interface IStorage {
@@ -113,6 +115,19 @@ export interface IStorage {
   // Stripe-related methods for subscriptions
   updateStripeCustomerId(customerId: number, stripeCustomerId: string): Promise<Customer>;
   updateSubscriptionStripeInfo(subscriptionId: number, stripeInfo: { stripeCustomerId: string, stripeSubscriptionId: string }): Promise<CustomerSubscription | undefined>;
+  
+  // Inventory Item methods
+  getInventoryItem(id: number): Promise<InventoryItem | undefined>;
+  createInventoryItem(item: InsertInventoryItem): Promise<InventoryItem>;
+  updateInventoryItem(id: number, item: Partial<InventoryItem>): Promise<InventoryItem | undefined>;
+  listInventoryItems(filters?: { category?: string, search?: string, lowStock?: boolean }): Promise<InventoryItem[]>;
+  deleteInventoryItem(id: number): Promise<boolean>;
+  
+  // Inventory Transaction methods
+  getInventoryTransaction(id: number): Promise<InventoryTransaction | undefined>;
+  createInventoryTransaction(transaction: InsertInventoryTransaction): Promise<InventoryTransaction>;
+  listInventoryTransactions(filters?: { inventoryItemId?: number, userId?: number, type?: string, startDate?: Date, endDate?: Date }): Promise<InventoryTransaction[]>;
+  getInventoryItemsByTechnician(technicianId: number): Promise<{ item: InventoryItem, quantity: number }[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -128,6 +143,8 @@ export class MemStorage implements IStorage {
   private reviews: Map<number, Review>;
   private membershipPlans: Map<number, MembershipPlan>;
   private customerSubscriptions: Map<number, CustomerSubscription>;
+  private inventoryItems: Map<number, InventoryItem>;
+  private inventoryTransactions: Map<number, InventoryTransaction>;
   
   // Membership Plan methods
   async getMembershipPlan(id: number): Promise<MembershipPlan | undefined> {
@@ -341,6 +358,264 @@ export class MemStorage implements IStorage {
     });
   }
   
+  // ===========================================
+  // Inventory Item methods
+  // ===========================================
+  
+  async getInventoryItem(id: number): Promise<InventoryItem | undefined> {
+    return this.inventoryItems.get(id);
+  }
+  
+  async createInventoryItem(item: InsertInventoryItem): Promise<InventoryItem> {
+    const id = this.inventoryItemIdCounter++;
+    const now = new Date();
+    
+    const newItem: InventoryItem = {
+      ...item,
+      id,
+      createdAt: now,
+      updatedAt: now,
+      isActive: item.isActive !== undefined ? item.isActive : true,
+      quantityInStock: item.quantityInStock || 0,
+      minStockLevel: item.minStockLevel || 0
+    };
+    
+    this.inventoryItems.set(id, newItem);
+    
+    // Create activity for inventory item creation
+    await this.createActivity({
+      type: 'inventory_item_added',
+      description: `Added new inventory item: ${item.name}`,
+      metadata: { 
+        itemId: id,
+        itemName: item.name,
+        category: item.category
+      }
+    });
+    
+    return newItem;
+  }
+  
+  async updateInventoryItem(id: number, item: Partial<InventoryItem>): Promise<InventoryItem | undefined> {
+    const existingItem = this.inventoryItems.get(id);
+    if (!existingItem) return undefined;
+    
+    const updatedItem: InventoryItem = {
+      ...existingItem,
+      ...item,
+      updatedAt: new Date()
+    };
+    
+    this.inventoryItems.set(id, updatedItem);
+    return updatedItem;
+  }
+  
+  async listInventoryItems(filters?: { category?: string, search?: string, lowStock?: boolean }): Promise<InventoryItem[]> {
+    let items = Array.from(this.inventoryItems.values());
+    
+    if (filters) {
+      if (filters.category) {
+        items = items.filter(item => item.category === filters.category);
+      }
+      
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        items = items.filter(item => 
+          item.name.toLowerCase().includes(searchLower) || 
+          item.sku.toLowerCase().includes(searchLower) ||
+          (item.description && item.description.toLowerCase().includes(searchLower))
+        );
+      }
+      
+      if (filters.lowStock) {
+        items = items.filter(item => item.quantityInStock <= item.minStockLevel);
+      }
+    }
+    
+    return items;
+  }
+  
+  async deleteInventoryItem(id: number): Promise<boolean> {
+    const item = this.inventoryItems.get(id);
+    if (!item) return false;
+    
+    // Check if there are any transactions for this item
+    const hasTransactions = Array.from(this.inventoryTransactions.values())
+      .some(transaction => transaction.inventoryItemId === id);
+    
+    if (hasTransactions) {
+      // Instead of deleting, mark as inactive
+      await this.updateInventoryItem(id, { isActive: false });
+      return true;
+    }
+    
+    return this.inventoryItems.delete(id);
+  }
+  
+  // ===========================================
+  // Inventory Transaction methods
+  // ===========================================
+  
+  async getInventoryTransaction(id: number): Promise<InventoryTransaction | undefined> {
+    return this.inventoryTransactions.get(id);
+  }
+  
+  async createInventoryTransaction(transaction: InsertInventoryTransaction): Promise<InventoryTransaction> {
+    const id = this.inventoryTransactionIdCounter++;
+    const now = new Date();
+    
+    // Get the inventory item
+    const item = this.inventoryItems.get(transaction.inventoryItemId);
+    if (!item) {
+      throw new Error(`Inventory item with ID ${transaction.inventoryItemId} not found`);
+    }
+    
+    // Calculate new stock quantity
+    let newQuantity = item.quantityInStock;
+    if (transaction.type === 'in') {
+      newQuantity += transaction.quantity;
+    } else if (transaction.type === 'out') {
+      newQuantity -= transaction.quantity;
+      
+      // Check if there's enough stock
+      if (newQuantity < 0) {
+        throw new Error(`Not enough stock for item ${item.name}. Requested: ${transaction.quantity}, Available: ${item.quantityInStock}`);
+      }
+    } else if (transaction.type === 'return') {
+      newQuantity += transaction.quantity;
+    } else if (transaction.type === 'adjustment') {
+      // For adjustment, the quantity is the absolute value
+      newQuantity = transaction.quantity;
+    }
+    
+    // Update the item's stock quantity
+    await this.updateInventoryItem(item.id, { quantityInStock: newQuantity });
+    
+    // Get technician name if applicable
+    let technicianName = '';
+    if (transaction.userId) {
+      const user = this.users.get(transaction.userId);
+      if (user) {
+        technicianName = user.fullName;
+      }
+    }
+    
+    // Create the transaction record
+    const newTransaction: InventoryTransaction = {
+      ...transaction,
+      id,
+      createdAt: now,
+      date: transaction.date || now
+    };
+    
+    this.inventoryTransactions.set(id, newTransaction);
+    
+    // Create activity for this transaction
+    let activityDescription = '';
+    if (transaction.type === 'out' && technicianName) {
+      activityDescription = `${technicianName} checked out ${transaction.quantity} ${item.name}`;
+    } else if (transaction.type === 'in') {
+      activityDescription = `Added ${transaction.quantity} ${item.name} to inventory`;
+    } else if (transaction.type === 'return' && technicianName) {
+      activityDescription = `${technicianName} returned ${transaction.quantity} ${item.name}`;
+    } else if (transaction.type === 'adjustment') {
+      activityDescription = `Adjusted ${item.name} inventory to ${transaction.quantity}`;
+    }
+    
+    await this.createActivity({
+      type: 'inventory_transaction',
+      description: activityDescription,
+      jobId: transaction.jobId || null,
+      metadata: { 
+        transactionId: id,
+        itemId: item.id,
+        itemName: item.name,
+        type: transaction.type,
+        quantity: transaction.quantity,
+        technician: technicianName || null
+      }
+    });
+    
+    return newTransaction;
+  }
+  
+  async listInventoryTransactions(filters?: { 
+    inventoryItemId?: number, 
+    userId?: number, 
+    type?: string, 
+    startDate?: Date, 
+    endDate?: Date 
+  }): Promise<InventoryTransaction[]> {
+    let transactions = Array.from(this.inventoryTransactions.values());
+    
+    if (filters) {
+      if (filters.inventoryItemId !== undefined) {
+        transactions = transactions.filter(tx => tx.inventoryItemId === filters.inventoryItemId);
+      }
+      
+      if (filters.userId !== undefined) {
+        transactions = transactions.filter(tx => tx.userId === filters.userId);
+      }
+      
+      if (filters.type !== undefined) {
+        transactions = transactions.filter(tx => tx.type === filters.type);
+      }
+      
+      if (filters.startDate !== undefined) {
+        transactions = transactions.filter(tx => tx.date >= filters.startDate);
+      }
+      
+      if (filters.endDate !== undefined) {
+        transactions = transactions.filter(tx => tx.date <= filters.endDate);
+      }
+    }
+    
+    // Sort by date descending
+    return transactions.sort((a, b) => b.date.getTime() - a.date.getTime());
+  }
+  
+  async getInventoryItemsByTechnician(technicianId: number): Promise<{ item: InventoryItem, quantity: number }[]> {
+    // Get all "out" transactions for this technician that haven't been returned
+    const checkouts = await this.listInventoryTransactions({ 
+      userId: technicianId, 
+      type: 'out' 
+    });
+    
+    const returns = await this.listInventoryTransactions({ 
+      userId: technicianId, 
+      type: 'return' 
+    });
+    
+    // Calculate net quantities by item
+    const itemQuantities = new Map<number, number>();
+    
+    // Add checkouts
+    for (const checkout of checkouts) {
+      const currentQty = itemQuantities.get(checkout.inventoryItemId) || 0;
+      itemQuantities.set(checkout.inventoryItemId, currentQty + checkout.quantity);
+    }
+    
+    // Subtract returns
+    for (const returnTx of returns) {
+      const currentQty = itemQuantities.get(returnTx.inventoryItemId) || 0;
+      itemQuantities.set(returnTx.inventoryItemId, Math.max(0, currentQty - returnTx.quantity));
+    }
+    
+    // Build the result
+    const result: { item: InventoryItem, quantity: number }[] = [];
+    
+    for (const [itemId, quantity] of itemQuantities.entries()) {
+      if (quantity > 0) {
+        const item = this.inventoryItems.get(itemId);
+        if (item) {
+          result.push({ item, quantity });
+        }
+      }
+    }
+    
+    return result;
+  }
+  
   private userIdCounter: number;
   private customerIdCounter: number;
   private vehicleIdCounter: number;
@@ -353,6 +628,8 @@ export class MemStorage implements IStorage {
   private reviewIdCounter: number;
   private membershipPlanIdCounter: number;
   private customerSubscriptionIdCounter: number;
+  private inventoryItemIdCounter: number;
+  private inventoryTransactionIdCounter: number;
 
   constructor() {
     this.users = new Map();
@@ -367,6 +644,8 @@ export class MemStorage implements IStorage {
     this.reviews = new Map();
     this.membershipPlans = new Map();
     this.customerSubscriptions = new Map();
+    this.inventoryItems = new Map();
+    this.inventoryTransactions = new Map();
     
     this.userIdCounter = 1;
     this.customerIdCounter = 1;
@@ -380,6 +659,8 @@ export class MemStorage implements IStorage {
     this.reviewIdCounter = 1;
     this.membershipPlanIdCounter = 1;
     this.customerSubscriptionIdCounter = 1;
+    this.inventoryItemIdCounter = 1;
+    this.inventoryTransactionIdCounter = 1;
     
     // Initialize with demo data
     this.initializeDemoData();

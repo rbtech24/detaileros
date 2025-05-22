@@ -332,9 +332,75 @@ export const insertCustomerSubscriptionSchema = createInsertSchema(customerSubsc
   stripeSubscriptionId: true,
 });
 
+// Inventory schema
+export const inventoryItems = pgTable("inventory_items", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  sku: text("sku").notNull().unique(),
+  category: text("category").notNull(),
+  description: text("description"),
+  unitPrice: real("unit_price").notNull(),
+  costPrice: real("cost_price").notNull(),
+  quantityInStock: integer("quantity_in_stock").notNull().default(0),
+  minStockLevel: integer("min_stock_level").notNull().default(0),
+  supplier: text("supplier"),
+  location: text("location"),
+  isActive: boolean("is_active").notNull().default(true),
+  imageUrl: text("image_url"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertInventoryItemSchema = createInsertSchema(inventoryItems).pick({
+  name: true,
+  sku: true,
+  category: true,
+  description: true,
+  unitPrice: true,
+  costPrice: true,
+  quantityInStock: true,
+  minStockLevel: true,
+  supplier: true,
+  location: true,
+  isActive: true,
+  imageUrl: true,
+});
+
+// Inventory Transaction schema for tracking technician usage
+export const inventoryTransactions = pgTable("inventory_transactions", {
+  id: serial("id").primaryKey(),
+  inventoryItemId: integer("inventory_item_id").notNull().references(() => inventoryItems.id),
+  quantity: integer("quantity").notNull(),
+  type: text("type").notNull(), // in, out, return, adjustment
+  reason: text("reason").notNull(), // job, purchase, damaged, etc.
+  notes: text("notes"),
+  date: timestamp("date").notNull().defaultNow(),
+  userId: integer("user_id").references(() => users.id), // Technician who performed the transaction
+  jobId: integer("job_id").references(() => jobs.id), // Optional job reference
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertInventoryTransactionSchema = createInsertSchema(inventoryTransactions).pick({
+  inventoryItemId: true,
+  quantity: true,
+  type: true,
+  reason: true,
+  notes: true,
+  date: true,
+  userId: true,
+  jobId: true,
+});
+
 // Export membership plan and subscription types
 export type MembershipPlan = typeof membershipPlans.$inferSelect;
 export type InsertMembershipPlan = z.infer<typeof insertMembershipPlanSchema>;
 
 export type CustomerSubscription = typeof customerSubscriptions.$inferSelect;
 export type InsertCustomerSubscription = z.infer<typeof insertCustomerSubscriptionSchema>;
+
+// Export inventory types
+export type InventoryItem = typeof inventoryItems.$inferSelect;
+export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;
+
+export type InventoryTransaction = typeof inventoryTransactions.$inferSelect;
+export type InsertInventoryTransaction = z.infer<typeof insertInventoryTransactionSchema>;
