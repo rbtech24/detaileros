@@ -8,7 +8,9 @@ import {
   invoices, type Invoice, type InsertInvoice,
   payments, type Payment, type InsertPayment,
   activities, type Activity, type InsertActivity,
-  reviews, type Review, type InsertReview
+  reviews, type Review, type InsertReview,
+  membershipPlans, type MembershipPlan, type InsertMembershipPlan,
+  customerSubscriptions, type CustomerSubscription, type InsertCustomerSubscription
 } from "@shared/schema";
 
 export interface IStorage {
@@ -92,6 +94,25 @@ export interface IStorage {
     revenue: number;
     count: number;
   }[]>;
+  
+  // Membership Plan methods
+  getMembershipPlan(id: number): Promise<MembershipPlan | undefined>;
+  createMembershipPlan(plan: InsertMembershipPlan): Promise<MembershipPlan>;
+  updateMembershipPlan(id: number, plan: Partial<MembershipPlan>): Promise<MembershipPlan | undefined>;
+  listMembershipPlans(activeOnly?: boolean): Promise<MembershipPlan[]>;
+  deleteMembershipPlan(id: number): Promise<boolean>;
+  
+  // Customer Subscription methods
+  getCustomerSubscription(id: number): Promise<CustomerSubscription | undefined>;
+  getActiveSubscriptionByCustomerId(customerId: number): Promise<CustomerSubscription | undefined>;
+  createCustomerSubscription(subscription: InsertCustomerSubscription): Promise<CustomerSubscription>;
+  updateCustomerSubscription(id: number, subscription: Partial<CustomerSubscription>): Promise<CustomerSubscription | undefined>;
+  listCustomerSubscriptions(filters?: { customerId?: number, planId?: number, status?: string }): Promise<CustomerSubscription[]>;
+  cancelSubscription(id: number): Promise<CustomerSubscription | undefined>;
+  
+  // Stripe-related methods for subscriptions
+  updateStripeCustomerId(customerId: number, stripeCustomerId: string): Promise<Customer>;
+  updateSubscriptionStripeInfo(subscriptionId: number, stripeInfo: { stripeCustomerId: string, stripeSubscriptionId: string }): Promise<CustomerSubscription | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -105,6 +126,8 @@ export class MemStorage implements IStorage {
   private payments: Map<number, Payment>;
   private activities: Map<number, Activity>;
   private reviews: Map<number, Review>;
+  private membershipPlans: Map<number, MembershipPlan>;
+  private customerSubscriptions: Map<number, CustomerSubscription>;
   
   private userIdCounter: number;
   private customerIdCounter: number;
@@ -116,6 +139,8 @@ export class MemStorage implements IStorage {
   private paymentIdCounter: number;
   private activityIdCounter: number;
   private reviewIdCounter: number;
+  private membershipPlanIdCounter: number;
+  private customerSubscriptionIdCounter: number;
 
   constructor() {
     this.users = new Map();

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, real, json, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, real, json, uuid, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -278,3 +278,63 @@ export type InsertActivity = z.infer<typeof insertActivitySchema>;
 
 export type Review = typeof reviews.$inferSelect;
 export type InsertReview = z.infer<typeof insertReviewSchema>;
+
+// Membership Plans schema
+export const membershipPlans = pgTable("membership_plans", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  monthlyPrice: real("monthly_price").notNull(),
+  annualPrice: real("annual_price"),
+  features: text("features").array(),
+  discountPercent: real("discount_percent").notNull().default(0), // Discount on services
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertMembershipPlanSchema = createInsertSchema(membershipPlans).pick({
+  name: true,
+  description: true,
+  monthlyPrice: true,
+  annualPrice: true,
+  features: true,
+  discountPercent: true,
+  active: true,
+});
+
+// Customer Subscriptions schema
+export const customerSubscriptions = pgTable("customer_subscriptions", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  planId: integer("plan_id").notNull().references(() => membershipPlans.id),
+  status: text("status").notNull().default("active"), // active, canceled, past_due, trialing
+  billingCycle: text("billing_cycle").notNull().default("monthly"), // monthly, annual
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"),
+  nextBillingDate: date("next_billing_date").notNull(),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  canceledAt: timestamp("canceled_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertCustomerSubscriptionSchema = createInsertSchema(customerSubscriptions).pick({
+  customerId: true,
+  planId: true,
+  status: true,
+  billingCycle: true,
+  startDate: true,
+  endDate: true,
+  nextBillingDate: true,
+  stripeCustomerId: true,
+  stripeSubscriptionId: true,
+});
+
+// Export membership plan and subscription types
+export type MembershipPlan = typeof membershipPlans.$inferSelect;
+export type InsertMembershipPlan = z.infer<typeof insertMembershipPlanSchema>;
+
+export type CustomerSubscription = typeof customerSubscriptions.$inferSelect;
+export type InsertCustomerSubscription = z.infer<typeof insertCustomerSubscriptionSchema>;
