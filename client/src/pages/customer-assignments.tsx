@@ -90,6 +90,7 @@ export default function CustomerAssignments() {
   const [selectedCustomers, setSelectedCustomers] = useState<number[]>([]);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedTechnicianId, setSelectedTechnicianId] = useState<string>("");
+  const [customerJobTypes, setCustomerJobTypes] = useState<Record<number, string>>({});
 
   // Fetch customers with their assigned technicians
   const { data: customers, isLoading: isLoadingCustomers } = useQuery({
@@ -101,7 +102,7 @@ export default function CustomerAssignments() {
       // that includes the assignment information
       const customers = await res.json();
       
-      // For now, we'll use mock assignments
+      // For now, we'll use the current assignments
       const customersWithAssignments = customers.customers.map((customer: any) => ({
         ...customer,
         assignedTechnicianId: customer.id % 5 === 0 ? 2 : 
@@ -109,6 +110,47 @@ export default function CustomerAssignments() {
       }));
       
       return customersWithAssignments;
+    }
+  });
+  
+  // Fetch jobs to determine job types for customers
+  const { data: jobs = [] } = useQuery({
+    queryKey: ['/api/jobs'],
+    queryFn: async () => {
+      const res = await fetch('/api/jobs');
+      if (!res.ok) throw new Error('Failed to fetch jobs');
+      return res.json();
+    },
+    onSuccess: (jobData) => {
+      // Create mapping of customer ID to their primary job type
+      const jobTypeMap: Record<number, string> = {};
+      
+      // Process jobs to determine customer job types
+      jobData.forEach((job: any) => {
+        if (job.customerId) {
+          // Determine job type based on status or other factors
+          const jobType = 
+            job.status === 'completed' ? 'Full Detail' :
+            job.status === 'in_progress' ? 'Ceramic Coating' :
+            job.status === 'scheduled' ? 'Express Detail' : 'New Service';
+          
+          // Only set if not already set or if this is a more recent job
+          if (!jobTypeMap[job.customerId]) {
+            jobTypeMap[job.customerId] = jobType;
+          }
+        }
+      });
+      
+      // Set default job type for customers without jobs
+      if (customers) {
+        customers.forEach((customer: any) => {
+          if (!jobTypeMap[customer.id]) {
+            jobTypeMap[customer.id] = 'New Customer';
+          }
+        });
+      }
+      
+      setCustomerJobTypes(jobTypeMap);
     }
   });
 
@@ -514,6 +556,20 @@ export default function CustomerAssignments() {
                           <Phone className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
                           {customer.phoneNumber}
                         </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center">
+                        <span className={cn(
+                          "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+                          customerJobTypes[customer.id] === 'Full Detail' ? "bg-blue-100 text-blue-800" :
+                          customerJobTypes[customer.id] === 'Ceramic Coating' ? "bg-purple-100 text-purple-800" :
+                          customerJobTypes[customer.id] === 'Express Detail' ? "bg-green-100 text-green-800" :
+                          "bg-gray-100 text-gray-800"
+                        )}>
+                          <Car className="mr-1 h-3 w-3" />
+                          {customerJobTypes[customer.id] || 'New Customer'}
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell>
