@@ -474,6 +474,7 @@ export default function CustomerAssignments() {
                 </TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Contact</TableHead>
+                <TableHead>Job Type</TableHead>
                 <TableHead>Assigned To</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
