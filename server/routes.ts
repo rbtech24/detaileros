@@ -1042,6 +1042,127 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Inventory Item Routes
+  api.get("/inventory", async (req, res) => {
+    try {
+      const filters = {
+        category: req.query.category as string | undefined,
+        search: req.query.search as string | undefined,
+        lowStock: req.query.lowStock === "true"
+      };
+      
+      const items = await storage.listInventoryItems(filters);
+      res.json(items);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to retrieve inventory items" });
+    }
+  });
+  
+  api.get("/inventory/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const item = await storage.getInventoryItem(id);
+      if (!item) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+      res.json(item);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to retrieve inventory item" });
+    }
+  });
+  
+  api.post("/inventory", async (req, res) => {
+    try {
+      const itemData = insertInventoryItemSchema.parse(req.body);
+      const item = await storage.createInventoryItem(itemData);
+      res.status(201).json(item);
+    } catch (err) {
+      handleZodError(err as Error, res);
+    }
+  });
+  
+  api.put("/inventory/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const itemData = insertInventoryItemSchema.partial().parse(req.body);
+      const item = await storage.updateInventoryItem(id, itemData);
+      if (!item) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+      res.json(item);
+    } catch (err) {
+      handleZodError(err as Error, res);
+    }
+  });
+  
+  api.delete("/inventory/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteInventoryItem(id);
+      if (!success) {
+        return res.status(404).json({ message: "Inventory item not found or cannot be deleted" });
+      }
+      res.status(204).send();
+    } catch (err) {
+      res.status(500).json({ message: "Failed to delete inventory item" });
+    }
+  });
+  
+  // Inventory Transaction Routes
+  api.get("/inventory-transactions", async (req, res) => {
+    try {
+      const filters = {
+        inventoryItemId: req.query.itemId ? parseInt(req.query.itemId as string) : undefined,
+        userId: req.query.userId ? parseInt(req.query.userId as string) : undefined,
+        type: req.query.type as string | undefined,
+        startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+        endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined
+      };
+      
+      const transactions = await storage.listInventoryTransactions(filters);
+      res.json(transactions);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to retrieve inventory transactions" });
+    }
+  });
+  
+  api.get("/inventory-transactions/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const transaction = await storage.getInventoryTransaction(id);
+      if (!transaction) {
+        return res.status(404).json({ message: "Inventory transaction not found" });
+      }
+      res.json(transaction);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to retrieve inventory transaction" });
+    }
+  });
+  
+  api.post("/inventory-transactions", async (req, res) => {
+    try {
+      const transactionData = insertInventoryTransactionSchema.parse(req.body);
+      const transaction = await storage.createInventoryTransaction(transactionData);
+      res.status(201).json(transaction);
+    } catch (err) {
+      if (err.message && err.message.startsWith("Not enough stock")) {
+        return res.status(400).json({ message: err.message });
+      }
+      handleZodError(err as Error, res);
+    }
+  });
+  
+  // Special endpoint to get inventory items checked out by a technician
+  api.get("/technicians/:id/inventory", async (req, res) => {
+    try {
+      const technicianId = parseInt(req.params.id);
+      const items = await storage.getInventoryItemsByTechnician(technicianId);
+      res.json(items);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to retrieve technician inventory items" });
+    }
+  });
+
   // Set up the API routes with the /api prefix
   app.use("/api", api);
 
