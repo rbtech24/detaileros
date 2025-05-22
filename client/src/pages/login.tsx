@@ -52,7 +52,7 @@ export default function Login() {
       await login(data.username, data.password);
       toast({
         title: "Login successful",
-        description: "Welcome to DetailPro CRM",
+        description: "Welcome to DetailerOps",
       });
       navigate("/dashboard");
     } catch (error) {
@@ -88,7 +88,7 @@ export default function Login() {
               </svg>
             </div>
           </div>
-          <CardTitle className="text-2xl text-center">DetailPro CRM</CardTitle>
+          <CardTitle className="text-2xl text-center">DetailerOps</CardTitle>
           <CardDescription className="text-center">
             Enter your credentials to access your account
           </CardDescription>
