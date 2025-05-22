@@ -22,6 +22,28 @@ import {
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Authentication routes
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      // Find user by username
+      const user = await storage.getUserByUsername(username);
+      
+      // Check if user exists and password matches
+      if (!user || user.password !== password) {
+        return res.status(401).json({ message: "Invalid username or password" });
+      }
+      
+      // Return user data without password
+      const { password: _, ...userWithoutPassword } = user;
+      
+      res.json(userWithoutPassword);
+    } catch (err) {
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+
   // Membership Plan Routes
   app.get("/api/membership-plans", async (req, res) => {
     try {
