@@ -138,7 +138,7 @@ export default function Login() {
         </CardContent>
         <CardFooter className="flex flex-col">
           <p className="text-sm text-muted-foreground text-center">
-            Demo credentials: username: admin, password: password
+            Demo credentials: username: <strong>admin</strong>, password: <strong>password</strong>
           </p>
         </CardFooter>
       </Card>
