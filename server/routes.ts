@@ -18,6 +18,147 @@ import {
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Membership Plan Routes
+  app.get("/api/membership-plans", async (req, res) => {
+    try {
+      const activeOnly = req.query.activeOnly === "true";
+      const plans = await storage.listMembershipPlans(activeOnly);
+      res.json(plans);
+    } catch (err) {
+      handleZodError(err, res);
+    }
+  });
+  
+  app.get("/api/membership-plans/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const plan = await storage.getMembershipPlan(id);
+      if (!plan) {
+        return res.status(404).json({ message: "Membership plan not found" });
+      }
+      res.json(plan);
+    } catch (err) {
+      handleZodError(err, res);
+    }
+  });
+  
+  app.post("/api/membership-plans", async (req, res) => {
+    try {
+      const planData = req.body;
+      const validatedData = insertMembershipPlanSchema.parse(planData);
+      const plan = await storage.createMembershipPlan(validatedData);
+      res.status(201).json(plan);
+    } catch (err) {
+      handleZodError(err, res);
+    }
+  });
+  
+  app.patch("/api/membership-plans/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const planData = req.body;
+      const plan = await storage.updateMembershipPlan(id, planData);
+      if (!plan) {
+        return res.status(404).json({ message: "Membership plan not found" });
+      }
+      res.json(plan);
+    } catch (err) {
+      handleZodError(err, res);
+    }
+  });
+  
+  app.delete("/api/membership-plans/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteMembershipPlan(id);
+      if (!success) {
+        return res.status(400).json({ message: "Cannot delete plan with active subscriptions" });
+      }
+      res.status(204).send();
+    } catch (err) {
+      handleZodError(err, res);
+    }
+  });
+  
+  // Customer Subscription Routes
+  app.get("/api/subscriptions", async (req, res) => {
+    try {
+      const filters = {
+        customerId: req.query.customerId ? parseInt(req.query.customerId as string) : undefined,
+        planId: req.query.planId ? parseInt(req.query.planId as string) : undefined,
+        status: req.query.status as string | undefined
+      };
+      
+      const subscriptions = await storage.listCustomerSubscriptions(filters);
+      res.json(subscriptions);
+    } catch (err) {
+      handleZodError(err, res);
+    }
+  });
+  
+  app.get("/api/subscriptions/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const subscription = await storage.getCustomerSubscription(id);
+      if (!subscription) {
+        return res.status(404).json({ message: "Subscription not found" });
+      }
+      res.json(subscription);
+    } catch (err) {
+      handleZodError(err, res);
+    }
+  });
+  
+  app.get("/api/customers/:customerId/active-subscription", async (req, res) => {
+    try {
+      const customerId = parseInt(req.params.customerId);
+      const subscription = await storage.getActiveSubscriptionByCustomerId(customerId);
+      if (!subscription) {
+        return res.status(404).json({ message: "No active subscription found" });
+      }
+      res.json(subscription);
+    } catch (err) {
+      handleZodError(err, res);
+    }
+  });
+  
+  app.post("/api/subscriptions", async (req, res) => {
+    try {
+      const subscriptionData = req.body;
+      const validatedData = insertCustomerSubscriptionSchema.parse(subscriptionData);
+      const subscription = await storage.createCustomerSubscription(validatedData);
+      res.status(201).json(subscription);
+    } catch (err) {
+      handleZodError(err, res);
+    }
+  });
+  
+  app.patch("/api/subscriptions/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const subscriptionData = req.body;
+      const subscription = await storage.updateCustomerSubscription(id, subscriptionData);
+      if (!subscription) {
+        return res.status(404).json({ message: "Subscription not found" });
+      }
+      res.json(subscription);
+    } catch (err) {
+      handleZodError(err, res);
+    }
+  });
+  
+  app.post("/api/subscriptions/:id/cancel", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const subscription = await storage.cancelSubscription(id);
+      if (!subscription) {
+        return res.status(404).json({ message: "Subscription not found or already canceled" });
+      }
+      res.json(subscription);
+    } catch (err) {
+      handleZodError(err, res);
+    }
+  });
   const api = express.Router();
 
   // Error handling middleware
