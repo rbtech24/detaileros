@@ -129,6 +129,218 @@ export class MemStorage implements IStorage {
   private membershipPlans: Map<number, MembershipPlan>;
   private customerSubscriptions: Map<number, CustomerSubscription>;
   
+  // Membership Plan methods
+  async getMembershipPlan(id: number): Promise<MembershipPlan | undefined> {
+    return this.membershipPlans.get(id);
+  }
+  
+  async createMembershipPlan(plan: InsertMembershipPlan): Promise<MembershipPlan> {
+    const id = this.membershipPlanIdCounter++;
+    const now = new Date();
+    
+    const newPlan: MembershipPlan = {
+      ...plan,
+      id,
+      features: plan.features || [],
+      active: plan.active !== undefined ? plan.active : true,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    this.membershipPlans.set(id, newPlan);
+    return newPlan;
+  }
+  
+  async updateMembershipPlan(id: number, plan: Partial<MembershipPlan>): Promise<MembershipPlan | undefined> {
+    const existingPlan = this.membershipPlans.get(id);
+    if (!existingPlan) return undefined;
+    
+    const updatedPlan: MembershipPlan = {
+      ...existingPlan,
+      ...plan,
+      updatedAt: new Date()
+    };
+    
+    this.membershipPlans.set(id, updatedPlan);
+    return updatedPlan;
+  }
+  
+  async listMembershipPlans(activeOnly: boolean = false): Promise<MembershipPlan[]> {
+    const plans = Array.from(this.membershipPlans.values());
+    return activeOnly ? plans.filter(plan => plan.active) : plans;
+  }
+  
+  async deleteMembershipPlan(id: number): Promise<boolean> {
+    // Check if there are any active subscriptions using this plan
+    const activeSubscriptions = Array.from(this.customerSubscriptions.values())
+      .filter(sub => sub.planId === id && sub.status === 'active');
+    
+    if (activeSubscriptions.length > 0) {
+      return false; // Cannot delete a plan with active subscriptions
+    }
+    
+    return this.membershipPlans.delete(id);
+  }
+  
+  // Customer Subscription methods
+  async getCustomerSubscription(id: number): Promise<CustomerSubscription | undefined> {
+    return this.customerSubscriptions.get(id);
+  }
+  
+  async getActiveSubscriptionByCustomerId(customerId: number): Promise<CustomerSubscription | undefined> {
+    return Array.from(this.customerSubscriptions.values()).find(
+      sub => sub.customerId === customerId && sub.status === 'active'
+    );
+  }
+  
+  async createCustomerSubscription(subscription: InsertCustomerSubscription): Promise<CustomerSubscription> {
+    const id = this.customerSubscriptionIdCounter++;
+    const now = new Date();
+    
+    // Check if customer exists
+    const customer = this.customers.get(subscription.customerId);
+    if (!customer) {
+      throw new Error(`Customer with ID ${subscription.customerId} not found`);
+    }
+    
+    // Check if plan exists
+    const plan = this.membershipPlans.get(subscription.planId);
+    if (!plan) {
+      throw new Error(`Membership plan with ID ${subscription.planId} not found`);
+    }
+    
+    // Cancel any existing active subscriptions for this customer
+    const existingSubscription = await this.getActiveSubscriptionByCustomerId(subscription.customerId);
+    if (existingSubscription) {
+      await this.cancelSubscription(existingSubscription.id);
+    }
+    
+    const newSubscription: CustomerSubscription = {
+      ...subscription,
+      id,
+      status: subscription.status || 'active',
+      billingCycle: subscription.billingCycle || 'monthly',
+      canceledAt: null,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    this.customerSubscriptions.set(id, newSubscription);
+    
+    // Create activity record for the new subscription
+    await this.createActivity({
+      type: 'subscription_created',
+      customerId: subscription.customerId,
+      description: `Customer subscribed to ${plan.name} plan`,
+      metadata: { 
+        planId: plan.id, 
+        planName: plan.name,
+        billingCycle: newSubscription.billingCycle,
+        price: newSubscription.billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice
+      }
+    });
+    
+    return newSubscription;
+  }
+  
+  async updateCustomerSubscription(id: number, subscription: Partial<CustomerSubscription>): Promise<CustomerSubscription | undefined> {
+    const existingSubscription = this.customerSubscriptions.get(id);
+    if (!existingSubscription) return undefined;
+    
+    const updatedSubscription: CustomerSubscription = {
+      ...existingSubscription,
+      ...subscription,
+      updatedAt: new Date()
+    };
+    
+    this.customerSubscriptions.set(id, updatedSubscription);
+    return updatedSubscription;
+  }
+  
+  async listCustomerSubscriptions(filters?: { customerId?: number, planId?: number, status?: string }): Promise<CustomerSubscription[]> {
+    let subscriptions = Array.from(this.customerSubscriptions.values());
+    
+    if (filters) {
+      if (filters.customerId !== undefined) {
+        subscriptions = subscriptions.filter(sub => sub.customerId === filters.customerId);
+      }
+      
+      if (filters.planId !== undefined) {
+        subscriptions = subscriptions.filter(sub => sub.planId === filters.planId);
+      }
+      
+      if (filters.status !== undefined) {
+        subscriptions = subscriptions.filter(sub => sub.status === filters.status);
+      }
+    }
+    
+    return subscriptions;
+  }
+  
+  async cancelSubscription(id: number): Promise<CustomerSubscription | undefined> {
+    const subscription = this.customerSubscriptions.get(id);
+    if (!subscription || subscription.status === 'canceled') return undefined;
+    
+    const now = new Date();
+    const updatedSubscription: CustomerSubscription = {
+      ...subscription,
+      status: 'canceled',
+      canceledAt: now,
+      updatedAt: now
+    };
+    
+    this.customerSubscriptions.set(id, updatedSubscription);
+    
+    // Create activity record for the canceled subscription
+    const plan = this.membershipPlans.get(subscription.planId);
+    if (plan) {
+      await this.createActivity({
+        type: 'subscription_canceled',
+        customerId: subscription.customerId,
+        description: `Subscription to ${plan.name} plan was canceled`,
+        metadata: { 
+          planId: plan.id, 
+          planName: plan.name,
+          subscriptionId: subscription.id
+        }
+      });
+    }
+    
+    return updatedSubscription;
+  }
+  
+  // Stripe-related methods for subscriptions
+  async updateStripeCustomerId(customerId: number, stripeCustomerId: string): Promise<Customer> {
+    const customer = this.customers.get(customerId);
+    if (!customer) {
+      throw new Error(`Customer with ID ${customerId} not found`);
+    }
+    
+    // In a real implementation, we would update the customer record with the Stripe ID
+    // For now, we'll just simulate this in memory
+    
+    // Create an activity to track this change
+    await this.createActivity({
+      type: 'stripe_customer_created',
+      customerId,
+      description: `Stripe customer ID created for ${customer.fullName}`,
+      metadata: { stripeCustomerId }
+    });
+    
+    // Return the customer (in a real implementation, we would return the updated customer)
+    return customer;
+  }
+  
+  async updateSubscriptionStripeInfo(
+    subscriptionId: number, 
+    stripeInfo: { stripeCustomerId: string; stripeSubscriptionId: string }
+  ): Promise<CustomerSubscription | undefined> {
+    return this.updateCustomerSubscription(subscriptionId, {
+      stripeCustomerId: stripeInfo.stripeCustomerId,
+      stripeSubscriptionId: stripeInfo.stripeSubscriptionId
+    });
+  }
+  
   private userIdCounter: number;
   private customerIdCounter: number;
   private vehicleIdCounter: number;
@@ -153,6 +365,8 @@ export class MemStorage implements IStorage {
     this.payments = new Map();
     this.activities = new Map();
     this.reviews = new Map();
+    this.membershipPlans = new Map();
+    this.customerSubscriptions = new Map();
     
     this.userIdCounter = 1;
     this.customerIdCounter = 1;
@@ -164,6 +378,8 @@ export class MemStorage implements IStorage {
     this.paymentIdCounter = 1;
     this.activityIdCounter = 1;
     this.reviewIdCounter = 1;
+    this.membershipPlanIdCounter = 1;
+    this.customerSubscriptionIdCounter = 1;
     
     // Initialize with demo data
     this.initializeDemoData();
@@ -752,8 +968,68 @@ export class MemStorage implements IStorage {
       .slice(0, limit);
   }
 
-  // Helper method to initialize the database with demo data
+  // Helper method to initialize membership plans
+  private async initializeMembershipPlans() {
+    // Only create plans if none exist
+    if (this.membershipPlans.size === 0) {
+      // Basic Plan
+      const basicPlan: InsertMembershipPlan = {
+        name: "Basic Care",
+        description: "Basic car care package for occasional detailing needs",
+        monthlyPrice: 29.99,
+        annualPrice: 299.99,
+        features: [
+          "1 Basic Wash per month",
+          "10% off additional services",
+          "Online scheduling priority"
+        ],
+        active: true
+      };
+      
+      // Premium Plan
+      const premiumPlan: InsertMembershipPlan = {
+        name: "Premium Shine",
+        description: "Enhanced detailing package for regular maintenance",
+        monthlyPrice: 59.99,
+        annualPrice: 599.99,
+        features: [
+          "2 Premium Washes per month",
+          "1 Interior Detail per quarter",
+          "15% off additional services",
+          "Priority scheduling",
+          "Free product samples"
+        ],
+        active: true
+      };
+      
+      // Ultimate Plan
+      const ultimatePlan: InsertMembershipPlan = {
+        name: "Ultimate Protection",
+        description: "Comprehensive care package for pristine vehicle maintenance",
+        monthlyPrice: 99.99,
+        annualPrice: 999.99,
+        features: [
+          "Unlimited Basic Washes",
+          "1 Full Detail per month",
+          "Quarterly Paint Protection",
+          "25% off additional services",
+          "VIP scheduling",
+          "Emergency cleaning services",
+          "Annual ceramic coating refresh"
+        ],
+        active: true
+      };
+      
+      // Add plans to storage
+      await this.createMembershipPlan(basicPlan);
+      await this.createMembershipPlan(premiumPlan);
+      await this.createMembershipPlan(ultimatePlan);
+    }
+  }
+  
   private async initializeDemoData() {
+    // Initialize demo membership plans
+    await this.initializeMembershipPlans();
     // Create default admin user
     await this.createUser({
       username: "admin",
