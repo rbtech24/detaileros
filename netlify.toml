@@ -7,10 +7,18 @@
   command = "npm run dev"
   port = 5000
 
+# These redirects are crucial for client-side routing to work properly
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+  force = true
+
+# Ensure proper handling of client-side routing
+[[headers]]
+  for = "/*"
+    [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
 
 [build.environment]
   NODE_VERSION = "20"
