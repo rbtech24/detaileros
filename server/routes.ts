@@ -15,6 +15,10 @@ import {
   insertPaymentSchema,
   insertReviewSchema,
   insertUserSchema,
+  insertMembershipPlanSchema,
+  insertCustomerSubscriptionSchema,
+  insertInventoryItemSchema,
+  insertInventoryTransactionSchema,
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
